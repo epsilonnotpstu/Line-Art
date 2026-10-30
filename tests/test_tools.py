@@ -67,6 +67,14 @@ class ToolsTest(unittest.TestCase):
         result = self.run_tool("tools/qa.py", self.source)
         self.assertIn("PASS: 1 FAIL: 0", result.stdout)
 
+    def test_qa_implicit_line_segments(self):
+        def triangle(root):
+            group = root.find(SVG + "g")
+            group.clear()
+            ET.SubElement(group, SVG + "path", d="m64 64 384 0 -192 384z")
+        self.write_svg(triangle)
+        self.assertEqual(check(self.svg, self.work), [])
+
     def test_qa_rejections(self):
         mutations = {
             "viewBox": lambda r: r.set("viewBox", "0 0 100 100"),
@@ -152,6 +160,7 @@ class ToolsTest(unittest.TestCase):
             self.assertEqual(set(archive.namelist()), {"outline_box.svg", "outline_box.png", "outline_box.eps", "fixtures_sheet.png", "LICENSE.txt"})
             self.assertIsNone(archive.testzip())
             self.assertIn(b"REPLACE BEFORE DISTRIBUTION", archive.read("LICENSE.txt"))
+            self.assertIn(b"TODO:", archive.read("LICENSE.txt"))
         (output / "LICENSE.txt").write_text("Seller reviewed terms")
         self.run_tool("tools/pack.sh", self.source)
         with zipfile.ZipFile(self.work / "dist/fixtures.zip") as archive:
@@ -226,19 +235,38 @@ class ToolsTest(unittest.TestCase):
     def test_listing_csv(self):
         source = self.work / "listing/fixtures.json"
         item = {"filename": "outline_box.svg", "title": 'Box, "outline"',
-                "description": "A box.\nEducational outline.", "keywords": ["box", "school", "box"]}
-        source.write_text(json.dumps({"items": [item]}))
+                "description": "A box.\nEducational outline.",
+                "keywords": [f"box keyword {i}" for i in range(25)]}
+        bundle = dict(item, filename="fixtures.zip", title="Box Outline Bundle",
+                      keywords=[f"bundle keyword {i}" for i in range(30)],
+                      contents="1 SVG, 1 PNG, 1 EPS, preview sheet, license")
+        source.write_text(json.dumps({"items": [item], "bundle": bundle}))
         self.run_tool("listing/make_csv.py", "fixtures")
         with source.with_suffix(".csv").open(encoding="utf-8-sig", newline="") as stream:
             rows = list(csv.DictReader(stream))
         self.assertEqual(rows[0]["title"], item["title"])
-        self.assertEqual(rows[0]["description"], item["description"])
-        self.assertEqual(rows[0]["keywords"], "box, school")
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("listing_csv", ROOT / "listing/make_csv.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        self.assertEqual(rows[0]["description"], item["description"] + "\n\n" + module.DISCLOSURE)
+        self.assertEqual(rows[0]["keywords"], ", ".join(item["keywords"]))
         self.assertEqual(rows[0]["ai_assisted"], "true")
-        for key, value in (("title", "hand-drawn box"), ("description", "=formula"), ("keywords", [])):
+        self.assertEqual([row["type"] for row in rows], ["item", "bundle"])
+        self.assertTrue(all(all(row.values()) for row in rows))
+        # An existing disclosure is replaced once, including after a constant change.
+        item["description"] += "\n\nOld disclosure placeholder."
+        source.write_text(json.dumps([item]))
+        self.run_tool("listing/make_csv.py", "fixtures")
+        self.assertNotIn("Old disclosure", source.with_suffix(".csv").read_text())
+        for key, value in (("title", "x" * 61), ("description", "=formula"),
+                           ("keywords", []), ("keywords", ["duplicate"] * 25)):
             with self.subTest(key=key):
                 source.write_text(json.dumps([dict(item, **{key: value})]))
                 self.run_tool("listing/make_csv.py", "fixtures", success=False)
+        duplicate = dict(item, filename="other_box.svg")
+        source.write_text(json.dumps([item, duplicate]))
+        self.run_tool("listing/make_csv.py", "fixtures", success=False)
 
 
 if __name__ == "__main__":

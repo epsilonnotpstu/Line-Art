@@ -95,3 +95,9 @@ Esc to cancel
 - result: 10 icons added ("lipboard" read as typo for clipboard). QA 30/0; sheet viewed once, no fix rounds.
 - usage:
 - handoff: none
+
+## 2026-10-30 12:45 | codex | effort: high | school_supplies export and listing
+- files: tools/{qa.py,pack.sh}, tests/test_tools.py, listing/{make_csv.py,README.md,school_supplies.json,school_supplies.csv}, export/school_supplies/{30 SVG,30 PNG,30 EPS,LICENSE.txt}, previews/school_supplies_sheet.png, dist/school_supplies.zip, LOG.md
+- result: initial source QA passes 30/0 and inventory is exactly 30 icons. Fixed a QA parser bug exposed by SVGO's valid implicit line segments in the optimized crayon triangle; no artwork edits. Local SVGO exports verified: 30 SVG, 30 transparent 1024x1024 PNG, 30 EPS; no missing/extra files. Single contact sheet generated and viewed once. Listing JSON/CSV contains the 30 actual icon filenames plus one bundle; titles unique and <=60 characters, 30 unique English keywords per entry, two-sentence description bodies plus exact disclosure, and no empty CSV fields. Disclosure is managed by one DISCLOSURE constant in make_csv.py. Bundle contents list verified. ZIP has exactly 92 entries (90 icon files, preview sheet, LICENSE.txt); CRC and byte-for-byte export checks pass. License remains a TODO-only stub. Test suite run once: all 11 tests pass, including real SVGO, CSV validation and implicit-path regression. No lib/, icons/ artwork or raw/ edits; nothing installed. Requested commit [codex] school_supplies export and listing blocked on the single staging attempt: .git/index.lock cannot be created because .git is read-only. Did not retry; changes remain unstaged.
+- usage:
+- handoff: none

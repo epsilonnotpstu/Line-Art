@@ -10,11 +10,7 @@ out="$root/export/$name"
 if [[ ! -f "$out/LICENSE.txt" ]]; then
     cat > "$out/LICENSE.txt" <<'LICENSE'
 LICENSE STUB — REPLACE BEFORE DISTRIBUTION
-Copyright holder: [SELLER NAME]
-Permitted use: [DEFINE PERSONAL / COMMERCIAL USE]
-Restrictions: [DEFINE REDISTRIBUTION / RESALE TERMS]
-AI assistance: [DISCLOSE PER THE TARGET MARKETPLACE'S CURRENT POLICY]
-This placeholder grants no license. Complete and review before selling.
+TODO: User must fill in the license text before distributing this bundle.
 LICENSE
 fi
 mkdir -p "$root/dist"

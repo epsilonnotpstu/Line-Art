@@ -20,6 +20,14 @@ def number(value):
     return float(value.removesuffix("px"))
 
 
+def path_draws(data):
+    if re.search(r"[LlHhVvCcSsQqTtAa]", data):
+        return True
+    # Extra coordinate pairs after moveto are implicit lineto segments.
+    moves = re.finditer(r"[Mm]([^MmLlHhVvCcSsQqTtAaZz]*)", data)
+    return any(len(re.findall(NUMBER, move[1])) >= 4 for move in moves)
+
+
 def check(path, profile, traced=False):
     errors = []
     if not NAME.fullmatch(path.stem):
@@ -85,7 +93,7 @@ def check(path, profile, traced=False):
                     errors.append(f"{tag}: stroke-width must be 12")
             if not traced and any(key in style for key in ("transform", "vector-effect")):
                 errors.append("transforms/vector-effect can alter the 12px stroke; bake geometry instead")
-            empty = tag == "path" and not re.search(r"[LlHhVvCcSsQqTtAa]", node.get("d", ""))
+            empty = tag == "path" and not path_draws(node.get("d", ""))
             if tag in {"polygon", "polyline"}:
                 empty = len(re.findall(NUMBER, node.get("points", ""))) < (6 if tag == "polygon" else 4)
             dimensions = {"rect": ("width", "height"), "circle": ("r",), "ellipse": ("rx", "ry")}
