@@ -31,7 +31,8 @@ External styles, references, hidden geometry and nested viewports are rejected.
 
 Trace reads `raw/*.png` by default, or explicit PNG paths. It composites alpha
 over white, thresholds, crops to ink, and runs potrace. Output defaults to
-`export/traced/` (override with `--output`). It never writes raw/, icons/ or lib/.
+`export/traced/` (override with `--output`). It never writes raw/ or lib/.
+Writing to icons/ requires explicit user authorization under the ownership rules.
 Threshold (1–255) changes which pixels become ink; scale (>0, ≤1) adjusts the
 centered artwork within a 448px box. Match line weight visually. Traces are
 filled shapes, so outline QA intentionally rejects them; stroke icons use

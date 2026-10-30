@@ -192,6 +192,12 @@ else:
             self.assertEqual(image.getpixel((0, 0))[3], 0)
         self.assertEqual(png.read_bytes(), original)
         self.run_tool("tools/trace.py", "--output", raw, success=False)
+        self.run_tool("tools/trace.py", "--output", self.work / "lib", success=False)
+        # Explicitly authorized icon destinations are supported; defaults stay in export/.
+        for collection in ("farm_animals", "food"):
+            destination = self.work / "icons" / collection
+            self.run_tool("tools/trace.py", png, "--output", destination)
+            self.assertTrue((destination / "trace_box.svg").is_file())
         self.run_tool("tools/trace.py", "--scale", "2", success=False)
 
     def test_listing_csv(self):

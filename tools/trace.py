@@ -16,7 +16,8 @@ ET.register_namespace("", SVG)
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("files", nargs="*", type=Path, help="default: raw/*.png")
-    parser.add_argument("--output", type=Path, default=ROOT / "export" / "traced")
+    parser.add_argument("--output", type=Path, default=ROOT / "export" / "traced",
+                        help="destination; use icons/ only with explicit ownership authorization")
     parser.add_argument("--threshold", type=int, default=128, help="black cutoff, 1..255")
     parser.add_argument("--scale", type=float, default=1.0, help="centered scale, >0 and <=1; artwork fits within 448px")
     args = parser.parse_args()
@@ -26,9 +27,9 @@ def main():
     if not files:
         parser.error("no PNG inputs found")
     output = args.output.resolve()
-    protected = [ROOT / directory for directory in ("raw", "icons", "lib")]
+    protected = [(ROOT / directory).resolve() for directory in ("raw", "lib")]
     if any(output == p or p in output.parents for p in protected):
-        parser.error("output must be outside raw/, icons/ and lib/")
+        parser.error("output must be outside raw/ and lib/")
     try:
         for file in files:
             if not NAME.fullmatch(file.stem):
