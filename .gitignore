@@ -1,0 +1,5 @@
+export/
+previews/
+dist/
+.venv/
+__pycache__/
