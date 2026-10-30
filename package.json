@@ -1,0 +1,26 @@
+{
+  "name": "line-art",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/epsilonnotpstu/Line-Art.git"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/epsilonnotpstu/Line-Art/issues"
+  },
+  "homepage": "https://github.com/epsilonnotpstu/Line-Art#readme",
+  "devDependencies": {
+    "svgo": "^4.1.0"
+  }
+}

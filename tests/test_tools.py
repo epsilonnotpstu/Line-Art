@@ -51,22 +51,9 @@ class ToolsTest(unittest.TestCase):
         mutate(root)
         ET.ElementTree(root).write(self.svg, encoding="utf-8")
 
-    def fake_svgo(self):
-        # Only the unavailable optimizer is substituted; renderers remain real.
-        binary = self.work / "bin"
-        binary.mkdir()
-        npx = binary / "npx"
-        npx.write_text(f"#!{sys.executable}\n" + """import pathlib, shutil, sys
-args = sys.argv[1:]
-assert args[:3] == ['--offline', '--no-install', 'svgo']
-if '--version' in args:
-    print('test stand-in (not SVGO)')
-else:
-    assert pathlib.Path(args[args.index('--config') + 1]).is_file()
-    shutil.copyfile(args[args.index('--input') + 1], args[args.index('--output') + 1])
-""")
-        npx.chmod(0o755)
-        self.env["PATH"] = str(binary) + os.pathsep + self.env["PATH"]
+    def local_svgo(self):
+        self.assertTrue((ROOT / "node_modules/.bin/svgo").is_file(), "local SVGO is required")
+        (self.work / "node_modules").symlink_to(ROOT / "node_modules", target_is_directory=True)
 
     def test_environment_report(self):
         report = self.run_tool("tools/check_env.sh").stdout
@@ -113,6 +100,35 @@ else:
         empty.mkdir()
         self.run_tool("tools/qa.py", empty, success=False)
 
+    def test_traced_profile_retains_safety_checks(self):
+        def filled(root):
+            root.set("fill", "#000000")
+            root.set("stroke", "none")
+            root.set("data-traced", "true")
+            root.find(SVG + "g").set("transform", "translate(0 0)")
+
+        self.write_svg(filled)
+        self.assertEqual(check(self.svg, self.work, traced=True), [])
+        self.run_tool("tools/qa.py", self.svg, success=False)
+        mutations = {
+            "viewBox": lambda r: r.set("viewBox", "0 0 256 256"),
+            "safe margin": lambda r: r.find(SVG + "g").set("transform", "translate(-40 0)"),
+            "empty g": lambda r: ET.SubElement(r.find(SVG + "g"), SVG + "g"),
+            "empty or degenerate path": lambda r: ET.SubElement(r.find(SVG + "g"), SVG + "path"),
+            "top-level g": lambda r: ET.SubElement(r, SVG + "g"),
+            "base64": lambda r: r.set("data-source", "data:;base64,PRIVATE"),
+            "traced fill": lambda r: r.set("fill", "red"),
+        }
+        for tag in ("image", "text", "filter", "clipPath", "linearGradient", "radialGradient"):
+            mutations[f"forbidden element: {tag}"] = lambda r, tag=tag: ET.SubElement(r.find(SVG + "g"), SVG + tag)
+        for expected, mutate in mutations.items():
+            with self.subTest(expected=expected):
+                def change(root):
+                    filled(root)
+                    mutate(root)
+                self.write_svg(change)
+                self.assertTrue(any(expected in error for error in check(self.svg, self.work, traced=True)))
+
     def assert_exports(self):
         output = self.work / "export/fixtures"
         self.assertTrue((output / "outline_box.svg").is_file())
@@ -124,8 +140,8 @@ else:
         self.assertTrue((output / "outline_box.eps").read_bytes().startswith(b"%!PS-Adobe"))
         self.assertEqual(check(output / "outline_box.svg", self.work), [])
 
-    def test_export_and_pack_with_optimizer_standin(self):
-        self.fake_svgo()
+    def test_export_and_pack_local_svgo(self):
+        self.local_svgo()
         self.run_tool("tools/export.sh", self.source)
         self.assert_exports()
         output = self.work / "export/fixtures"
@@ -141,20 +157,16 @@ else:
         with zipfile.ZipFile(self.work / "dist/fixtures.zip") as archive:
             self.assertEqual(archive.read("LICENSE.txt"), b"Seller reviewed terms")
 
-    def test_real_svgo_if_available(self):
-        result = subprocess.run(["npx", "--offline", "--no-install", "svgo", "--version"], capture_output=True)
-        if result.returncode:
-            self.skipTest("SVGO unavailable; real optimizer test requires a local npx cache")
+    def test_real_svgo(self):
+        self.local_svgo()
+        # Prove that optimization really runs rather than just copying the input.
+        with self.svg.open("a") as stream:
+            stream.write("<!--svgo_removable_comment-->")
         self.run_tool("tools/export.sh", self.source)
         self.assert_exports()
+        self.assertNotIn(b"svgo_removable_comment", (self.work / "export/fixtures/outline_box.svg").read_bytes())
 
     def test_export_dependency_failure(self):
-        binary = self.work / "bin"
-        binary.mkdir()
-        npx = binary / "npx"
-        npx.write_text("#!/bin/sh\nexit 1\n")
-        npx.chmod(0o755)
-        self.env["PATH"] = str(binary) + os.pathsep + self.env["PATH"]
         result = self.run_tool("tools/export.sh", self.source, success=False)
         self.assertIn("SVGO unavailable", result.stderr)
         self.assertFalse((self.work / "export").exists())
@@ -182,6 +194,17 @@ else:
         self.assertEqual(root.find(SVG + "g").get("fill"), "#000000")
         self.assertTrue(root.findall(f".//{SVG}path"))
         self.assertTrue(any("fill must be none" in e for e in check(traced, self.work)))
+        self.assertEqual(check(traced, self.work, traced=True), [])
+        self.run_tool("tools/qa.py", "--traced", traced)
+        self.assertEqual(root.get("data-traced"), "true")
+        # One collection can contain both traced fills and strict outline icons.
+        shutil.copy(traced, self.source / traced.name)
+        self.local_svgo()
+        self.run_tool("tools/export.sh", self.source)
+        optimized = self.work / "export/fixtures/trace_box.svg"
+        self.assertEqual(ET.parse(optimized).getroot().get("data-traced"), "true")
+        self.assertEqual(check(optimized, self.work, traced=True), [])
+        self.assert_exports()
         rendered = self.work / "traced.png"
         subprocess.run(["inkscape", str(traced), f"--export-filename={rendered}"], capture_output=True, check=True)
         with Image.open(rendered) as image:

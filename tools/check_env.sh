@@ -19,15 +19,8 @@ report inkscape inkscape --version
 report potrace potrace --version
 report rsvg-convert rsvg-convert --version
 report npx npx --version
-if command -v npx >/dev/null 2>&1; then
-    if version=$(npx --offline --no-install svgo --version 2>/dev/null); then
-        printf 'svgo: %s\n' "$version"
-    else
-        printf 'svgo: MISSING (not available locally via npx)\n'
-    fi
-else
-    printf 'svgo: MISSING (requires npx)\n'
-fi
+root=$(cd "$(dirname "$0")/.." && pwd)
+report svgo "$root/node_modules/.bin/svgo" --version
 report python3 python3 --version
 if command -v python3 >/dev/null 2>&1; then
     if version=$(python3 -c 'import PIL; print(PIL.__version__)' 2>/dev/null); then

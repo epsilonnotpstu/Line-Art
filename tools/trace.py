@@ -55,6 +55,7 @@ def main():
                 factor = 448 * args.scale / max(width, height)
                 x, y = (512 - width * factor) / 2, (512 - height * factor) / 2
                 root = ET.Element(f"{{{SVG}}}svg", viewBox="0 0 512 512", width="512", height="512")
+                root.set("data-traced", "true")
                 group = ET.SubElement(root, f"{{{SVG}}}g", fill="#000000", stroke="none",
                                       transform=f"translate({x:g} {y:g}) scale({factor:g})")
                 for child in source:
